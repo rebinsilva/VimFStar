@@ -53,7 +53,7 @@ if !empty(s:matchs) && !exists('g:fstar_inter')
   command Fanswer call Fget_answer()
 
   "Here you can set the color you want for checked code
-  highlight FChecked ctermbg=darkgrey guibg=lightGreen
+  highlight FChecked ctermbg=19 guibg=lightGreen
 endif
 
 
