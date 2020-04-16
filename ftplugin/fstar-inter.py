@@ -57,9 +57,9 @@ def fstar_writeinter (s) :
     global fst
     fst.stdin.write(s)
 
-def fstar_init () :
+def fstar_init (filename) :
     global fst,interout
-    fst=Popen([fstarpath,'--ide'],stdin=PIPE, stdout=PIPE,bufsize=1,close_fds=ON_POSIX)
+    fst=Popen([fstarpath, filename, '--in'],stdin=PIPE, stdout=PIPE,stderr=PIPE, bufsize=1,universal_newlines=True, close_fds=ON_POSIX)
     interout=Queue()
     t=Thread(target=fstar_enqueue_output,args=(fst.stdout,interout))
     t.daemon=True

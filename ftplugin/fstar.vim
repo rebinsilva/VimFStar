@@ -44,7 +44,7 @@ if !empty(s:matchs) && !exists('g:fstar_inter')
     py3 fstar_vim_get_answer()
   endfunction
 
-  py3 fstar_init()
+  py3 fstar_init(vim.current.buffer.name)
 
   command Funtil call Funtil_cursor()
   command Funtilquick call Funtil_cursor_quick()
