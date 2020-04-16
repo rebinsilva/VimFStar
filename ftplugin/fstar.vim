@@ -18,33 +18,33 @@ let s:matchs = globpath(s:jpath,"fstar.exe")
 if !empty(s:matchs) && !exists('g:fstar_inter')
 
   let g:fstar_inter = 1
-  pyfile <sfile>:p:h/fstar-inter.py
+  py3file <sfile>:p:h/fstar-inter.py
 
   fu! Ftest_code ()
-    py fstar_vim_test_code()
+    py3 fstar_vim_test_code()
   endfunction
 
   fu! Funtil_cursor()
-    py fstar_vim_until_cursor()
+    py3 fstar_vim_until_cursor()
   endfunction
 
   fu! Funtil_cursor_quick()
-    py fstar_vim_until_cursor(True)
+    py3 fstar_vim_until_cursor(True)
   endfunction
 
   fu! Fget_result()
-    py fstar_vim_query_answer()
+    py3 fstar_vim_query_answer()
   endfunction
 
   fu! Freset()
-    py fstar_reset()
+    py3 fstar_reset()
   endfunction
 
   fu! Fget_answer()
-    py fstar_vim_get_answer()
+    py3 fstar_vim_get_answer()
   endfunction
 
-  py fstar_init()
+  py3 fstar_init()
 
   command Funtil call Funtil_cursor()
   command Funtilquick call Funtil_cursor_quick()
