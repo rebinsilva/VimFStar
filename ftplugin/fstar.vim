@@ -14,6 +14,22 @@ let s:matchs = globpath(s:jpath,"fstar.exe")
 "Disable mappings
 "let g:fstar_inter_maps = 1
 
+function! OpenFstar()
+    if(bufexists('fstar.fhelp'))
+	let fstarwin = bufwinnr('fstar.fhelp')
+	if(fstarwin == -1)
+	    execute "rightbelow vertical sbuffer " . bufnr('fstar.fhelp')
+	else
+	    execute fstarwin . 'wincmd w'
+	endif
+    else
+	execute "rightbelow vnew fstar.fhelp"
+	setlocal buftype=nofile
+	setlocal bufhidden=hide
+	setlocal noswapfile
+    endif
+    return bufwinnr('fstar.fhelp')
+endfunction
 
 if !empty(s:matchs) && !exists('g:fstar_inter')
 
@@ -44,7 +60,7 @@ if !empty(s:matchs) && !exists('g:fstar_inter')
     py3 fstar_vim_get_answer()
   endfunction
 
-  py3 fstar_init(vim.current.buffer.name)
+  py3 fstar_init(vim.current.buffer.name, vim.Function('OpenFstar'))
 
   command Funtil call Funtil_cursor()
   command Funtilquick call Funtil_cursor_quick()

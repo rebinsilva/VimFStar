@@ -14,8 +14,18 @@ fstarupdatehi=False
 fstarmatch=None
 fst=None
 interout=None
+fstar_window=None
 
 ON_POSIX = 'posix' in sys.builtin_module_names
+
+def fstar_write(message):
+    orig_window = vim.current.window.number
+    winnr = fstar_window()
+    vim.command("set modifiable")
+    vim.command("normal! 1GdG")
+    vim.buffers[winnr].append(message,0)
+    vim.command("set nomodifiable")
+    vim.command(str(orig_window)+"wincmd w")
 
 def fstar_reset_hi() :
     global fstarmatch
@@ -35,7 +45,7 @@ def fstar_update_hi(newpos) :
     fstar_add_hi(newpos)
     return
 
-def fstar_update_marker(newpos) : 
+def fstar_update_marker(newpos) :
     vim.command('exe "normal! ' + str(newpos) + 'G1|mv\\<C-o>"')
     return
 
@@ -57,8 +67,9 @@ def fstar_writeinter (s) :
     global fst
     fst.stdin.write(s)
 
-def fstar_init (filename) :
-    global fst,interout
+def fstar_init (filename,window_creater) :
+    global fst,interout, fstar_window
+    fstar_window = window_creater
     fst=Popen([fstarpath, filename, '--in'],stdin=PIPE, stdout=PIPE,stderr=PIPE, bufsize=1,universal_newlines=True, close_fds=ON_POSIX)
     interout=Queue()
     t=Thread(target=fstar_enqueue_output,args=(fst.stdout,interout))
@@ -74,7 +85,7 @@ def fstar_reset() :
     fstarupdatehi=False
     fstar_reset_hi()
     fstar_init()
-    print('Interaction reset')
+    fstar_write('Interaction reset')
 
 
 def fstar_test_code (code,keep,quickcheck=False) :
@@ -85,9 +96,9 @@ def fstar_test_code (code,keep,quickcheck=False) :
     fstar_writeinter('#push\n')
     if quickcheck :
         fstar_writeinter('#set-options "--admit_smt_queries true"\n')
-    fstar_writeinter(code) 
+    fstar_writeinter(code)
     fstar_writeinter('\n')
-    if quickcheck : 
+    if quickcheck :
         fstar_writeinter('#reset-options\n')
     fstar_writeinter('#end\n')
     if not keep :
@@ -125,7 +136,7 @@ def fstar_gather_answer () :
 def fstar_vim_query_answer () :
     r = fstar_gather_answer()
     if r != None :
-        print(r)
+        fstar_write(r)
 
 def fstar_get_range(firstl,lastl) :
     lines = vim.eval("getline(%s,%s)"%(firstl,lastl))
@@ -147,24 +158,24 @@ def fstar_vim_test_code () :
     global fstarrequestline, fstaranswer
     global fstarupdatehi
     if fstarbusy == 1 :
-        print('Already busy')
+        fstar_write('Already busy')
         return
     fstaranswer=''
     fstarrequestline = int(vim.eval("getpos(\"'<\")")[1])
     code = fstar_get_selection()
     fstarupdatehi=False
     fstar_test_code(code,False)
-    print('Test of selected code launched')
+    fstar_write('Test of selected code launched')
 
 def fstar_vim_until_cursor (quick=False) :
     global fstarcurrentline,fstarpotentialline,fstarrequestline,fstarupdatehi, fstaranswer
     if fstarbusy == 1 :
-        print('Already busy')
+        fstar_write('Already busy')
         return
     fstaranswer = ''
     vimline = int(vim.eval("getpos(\".\")")[1])
     if vimline <= fstarcurrentline :
-        print('Already checked')
+        fstar_write('Already checked')
         return
     firstl = fstarcurrentline+1
     fstarrequestline=firstl
@@ -174,14 +185,14 @@ def fstar_vim_until_cursor (quick=False) :
     fstarupdatehi=True
     fstar_test_code(code,True,quick)
     if quick :
-        print('Quick test until this point launched')
+        fstar_write('Quick test until this point launched')
     else :
-        print('Test until this point launched')
+        fstar_write('Test until this point launched')
 
 def fstar_vim_get_answer() :
     global fstaranswer
-    print(fstaranswer)
+    fstar_write(fstaranswer)
 
 def fstar_get_current_line () :
     global fstarcurrentline
-    print(fstarcurrentline)
+    fstar_write(fstarcurrentline)
