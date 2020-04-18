@@ -1,6 +1,7 @@
 import sys
 import re
 import vim
+import json
 from subprocess import PIPE,Popen
 from threading import Thread
 from queue import Queue, Empty
@@ -15,6 +16,7 @@ fstarmatch=None
 fst=None
 interout=None
 fstar_window=None
+query_id=1
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -61,16 +63,18 @@ def fstar_readinter () :
     except Empty :
         return None
     else :
-        return line
+        return json.loads(line)
 
 def fstar_writeinter (s) :
     global fst
-    fst.stdin.write(s)
+    print(json.dumps(s)+"\n")
+    fst.stdin.write(json.dumps(s)+"\n")
 
-def fstar_init (filename,window_creater) :
-    global fst,interout, fstar_window
+def fstar_init (fbuffer,window_creater) :
+    global fst,interout, fstar_window, fstar_buffer
+    fstar_buffer = fbuffer
     fstar_window = window_creater
-    fst=Popen([fstarpath, filename, '--in'],stdin=PIPE, stdout=PIPE,stderr=PIPE, bufsize=1,universal_newlines=True, close_fds=ON_POSIX)
+    fst=Popen([fstarpath, fstar_buffer.name, '--ide'],stdin=PIPE, stdout=PIPE,stderr=PIPE, bufsize=1,universal_newlines=True, close_fds=ON_POSIX)
     interout=Queue()
     t=Thread(target=fstar_enqueue_output,args=(fst.stdout,interout))
     t.daemon=True
@@ -84,26 +88,52 @@ def fstar_reset() :
     fstaranswer=None
     fstarupdatehi=False
     fstar_reset_hi()
+    message = {"query-id":str(query_id), "query": "exit", "args":{}}
+    fstar_write(message)
     fstar_init()
     fstar_write('Interaction reset')
 
 
 def fstar_test_code (code,keep,quickcheck=False) :
-    global fstarbusy,fst
+    global fstarbusy,fst, query_id
     if fstarbusy == 1 :
         return 'Already busy'
     fstarbusy = 1
-    fstar_writeinter('#push\n')
-    if quickcheck :
-        fstar_writeinter('#set-options "--admit_smt_queries true"\n')
-    fstar_writeinter(code)
-    fstar_writeinter('\n')
-    if quickcheck :
-        fstar_writeinter('#reset-options\n')
-    fstar_writeinter('#end\n')
+    message = {"query-id": str(query_id), "query":"push", "args":{"kind":"full", "code":code+"\n", "line": fstarcurrentline+1, "column":0}}
+    query_id +=1
+    if quickcheck:
+        message["args"]["kind"]="lax"
     if not keep :
-        fstar_writeinter('#pop\n')
+        message["query"] = "peek"
+    fstar_writeinter(message)
     return ''
+
+def fstar_lookup(symbol):       # need to remove escaping properly
+    global fstarbusy, query_id
+    if fstarbusy == 1:
+        return 'Already busy'
+    fstarbusy = 1
+    message = {"query-id": str(query_id), "query": "lookup", "args": {"symbol": symbol[1:-1], "requested-info": ["name", "defined-at", "documentation", "type", "definition"]}}
+    query_id +=1
+    fstar_writeinter(message)
+
+def fstar_compute(term):
+    global fstarbusy, query_id
+    if fstarbusy == 1:
+        return 'Already busy'
+    fstarbusy = 1
+    message = {"query-id": str(query_id), "query": "compute", "args": {"term": term[1:-1]}}
+    query_id +=1
+    fstar_writeinter(message)
+
+def fstar_search(terms):
+    global fstarbusy, query_id
+    if fstarbusy == 1:
+        return 'Already busy'
+    fstarbusy = 1
+    message = {"query-id": str(query_id), "query": "search", "args": {"terms": terms[1:-1]}}
+    query_id +=1
+    fstar_writeinter(message)
 
 def fstar_convert_answer(ans) :
     global fstarrequestline
@@ -113,23 +143,33 @@ def fstar_convert_answer(ans) :
     return '(%d,%s-%d,%s) : %s' % (int(res.group(1))+fstarrequestline-1,res.group(2),int(res.group(3))+fstarrequestline-1,res.group(4),res.group(5))
 
 def fstar_gather_answer () :
-    global fstarbusy,fst,fstaranswer,fstarpotentialline,fstarcurrentline,fstarupdatehi
+    global fstarbusy,fst,fstaranswer,fstarpotentialline,fstarcurrentline,fstarupdatehi, query_id
     if fstarbusy == 0 :
         return 'No verification pending'
+    fstaranswer = []
     line=fstar_readinter()
     while line != None :
-        if line=='ok\n' :
+        print(line)
+        if(line["kind"] == "response" and line["query-id"] == str(query_id-1)) :
             fstarbusy=0
-            fstarcurrentline=fstarpotentialline
-            if fstarupdatehi :
-                fstar_update_hi(fstarcurrentline)
-                fstar_update_marker(fstarcurrentline+1)
-            return 'Verification succeeded'
-        if line=='fail\n' :
-            fstarbusy=0
-            fstarpotentialline=fstarcurrentline
-            return fstaranswer
-        fstaranswer+='\n'+fstar_convert_answer(line)
+            if line["status"]=='success':
+                fstarcurrentline=fstarpotentialline
+                if fstarupdatehi :
+                    fstar_update_hi(fstarcurrentline)
+                    fstar_update_marker(fstarcurrentline+1)
+                #fstaranswer += [(x["level"] +": "+x["message"]).split("\n") for x in line["response"]]
+                fstaranswer += [str(line["response"]).split("\n")]
+                return [item for sublist in fstaranswer for item in sublist ]
+            if line["status"] == 'failure' :
+                fstarpotentialline=fstarcurrentline
+                #fstaranswer += [(x["level"] +": "+x["message"] +" " + ", ".join([str(y["beg"]) + " " + str(y["end"]) if y["fname"] == "<input>" else "" for y in x["ranges"]])).split("\n") for x in line["response"]]
+                fstaranswer += [str(line["response"]).split("\n")]
+                return [item for sublist in fstaranswer for item in sublist ]
+        if(line["kind"] == "message" and line["level"] == "progress"):
+            try:
+                fstaranswer.append(("progress: "+ " ".join(line["contents"].values())).split("\n"))
+            except TypeError:
+                pass
         line=fstar_readinter()
     return 'Busy'
 

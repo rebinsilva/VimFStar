@@ -60,7 +60,43 @@ if !empty(s:matchs) && !exists('g:fstar_inter')
     py3 fstar_vim_get_answer()
   endfunction
 
-  py3 fstar_init(vim.current.buffer.name, vim.Function('OpenFstar'))
+  fu! Flookup()
+    py3 fstar_lookup(vim.eval('shellescape(expand("<cword>"))'))
+  endfunction
+
+  fu! Fcompute(type)
+    let saved_unnamed_register = @@
+
+    if a:type ==# 'v'
+	normal! `<v`>y
+    elseif a:type ==# 'char'
+	normal!  `[v`]y
+    else
+	return
+    endif
+
+    py3 fstar_compute(vim.eval('shellescape(@@)'))
+
+    let @@ = saved_unnamed_register
+  endfunction
+
+  fu! Fsearch(type)
+    let saved_unnamed_register = @@
+
+    if a:type ==# 'v'
+	normal! `<v`>y
+    elseif a:type ==# 'char'
+	normal!  `[v`]y
+    else
+	return
+    endif
+
+    py3 fstar_search(vim.eval('shellescape(@@)'))
+
+    let @@ = saved_unnamed_register
+  endfunction
+
+  py3 fstar_init(vim.current.buffer, vim.Function('OpenFstar'))
 
   command Funtil call Funtil_cursor()
   command Funtilquick call Funtil_cursor_quick()
@@ -80,6 +116,10 @@ if !exists("g:fstar_inter_maps")
   nnoremap <buffer> <F4> :call Fget_answer()<CR>
   nnoremap <buffer> <F5> (v)k$<CR>
   nnoremap <buffer> <F6> :call Funtil_cursor_quick()<CR>
+  nnoremap <buffer> <Leader>fc :set operatorfunc=Fcompute<cr>g@
+  vnoremap <buffer> <Leader>fc :<c-u>call Fcompute(visualmode())<cr>
+  nnoremap <buffer> <Leader>fs :set operatorfunc=Fsearch<cr>g@
+  vnoremap <buffer> <Leader>fs :<c-u>call Fsearch(visualmode())<cr>
   "<C-u> is to remove '<,'> which execute the command for each selected line
 endif
 
