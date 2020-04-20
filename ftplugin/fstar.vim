@@ -14,43 +14,92 @@ let s:matchs = globpath(s:jpath,"fstar.exe")
 "Disable mappings
 "let g:fstar_inter_maps = 1
 
+function! OpenFstar()
+    if(bufexists('fstar.fhelp'))
+	let fstarwin = bufwinnr('fstar.fhelp')
+	if(fstarwin == -1)
+	    execute "rightbelow vertical sbuffer " . bufnr('fstar.fhelp')
+	else
+	    execute fstarwin . 'wincmd w'
+	endif
+    else
+	execute "rightbelow vnew fstar.fhelp"
+	setlocal buftype=nofile
+	setlocal bufhidden=hide
+	setlocal noswapfile
+    endif
+    return bufwinnr('fstar.fhelp')
+endfunction
 
 if !empty(s:matchs) && !exists('g:fstar_inter')
 
   let g:fstar_inter = 1
   py3file <sfile>:p:h/fstar-inter.py
 
+  py3 fstar = Fstar(vim.current.buffer, vim.Function('OpenFstar'))
+
   fu! Ftest_code ()
-    py3 fstar_vim_test_code()
+    py3 fstar.fstar_vim_test_code()
   endfunction
 
   fu! Funtil_cursor()
-    py3 fstar_vim_until_cursor()
+    py3 fstar.fstar_vim_until_cursor()
   endfunction
 
   fu! Funtil_cursor_quick()
-    py3 fstar_vim_until_cursor(True)
+    py3 fstar.fstar_vim_until_cursor(True)
   endfunction
 
   fu! Fget_result()
-    py3 fstar_vim_query_answer()
+    py3 fstar.fstar_vim_query_answer()
   endfunction
 
   fu! Freset()
-    py3 fstar_reset()
+    py3 fstar.fstar_reset()
+    py3 fstar = Fstar(vim.current.buffer, vim.Function('OpenFstar'))
   endfunction
 
-  fu! Fget_answer()
-    py3 fstar_vim_get_answer()
+  fu! Flookup()
+    py3 fstar.fstar_lookup(vim.eval('shellescape(expand("<cword>"))'))
   endfunction
 
-  py3 fstar_init(vim.current.buffer.name)
+  fu! Fcompute(type)
+    let saved_unnamed_register = @@
+
+    if a:type ==# 'v'
+	normal! `<v`>y
+    elseif a:type ==# 'char'
+	normal!  `[v`]y
+    else
+	return
+    endif
+
+    py3 fstar.fstar_compute(vim.eval('shellescape(@@)'))
+
+    let @@ = saved_unnamed_register
+  endfunction
+
+  fu! Fsearch(type)
+    let saved_unnamed_register = @@
+
+    if a:type ==# 'v'
+	normal! `<v`>y
+    elseif a:type ==# 'char'
+	normal!  `[v`]y
+    else
+	return
+    endif
+
+    py3 fstar.fstar_search(vim.eval('shellescape(@@)'))
+
+    let @@ = saved_unnamed_register
+  endfunction
+
 
   command Funtil call Funtil_cursor()
   command Funtilquick call Funtil_cursor_quick()
   command Fresult call Fget_result()
   command Freset call Freset()
-  command Fanswer call Fget_answer()
 
   "Here you can set the color you want for checked code
   highlight FChecked ctermbg=19 guibg=lightGreen
@@ -61,9 +110,12 @@ if !exists("g:fstar_inter_maps")
   vnoremap <buffer> <F2> :<C-u>call Ftest_code()<CR>
   nnoremap <buffer> <F2> :call Funtil_cursor()<CR>
   nnoremap <buffer> <F3> :call Fget_result()<CR>
-  nnoremap <buffer> <F4> :call Fget_answer()<CR>
   nnoremap <buffer> <F5> (v)k$<CR>
   nnoremap <buffer> <F6> :call Funtil_cursor_quick()<CR>
+  nnoremap <buffer> <Leader>fc :set operatorfunc=Fcompute<cr>g@
+  vnoremap <buffer> <Leader>fc :<c-u>call Fcompute(visualmode())<cr>
+  nnoremap <buffer> <Leader>fs :set operatorfunc=Fsearch<cr>g@
+  vnoremap <buffer> <Leader>fs :<c-u>call Fsearch(visualmode())<cr>
   "<C-u> is to remove '<,'> which execute the command for each selected line
 endif
 
