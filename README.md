@@ -1,6 +1,6 @@
 # VimFStar Interactive
 
-*VimFStar Interactive* is a [Vim] plugin for [F*], an [ML]-like language with a type system for program verification.
+*VimFStar Interactive* is a [Vim] plugin for [F*], an [ML]-like language with a type system for program verification. This is an active fork of FStarLang/VimFstar.
 
 ## Features
 
